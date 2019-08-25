@@ -1,4 +1,4 @@
-from random import random
+from random import random, choice
 from random import seed as set_seed
 from math import atan2
 import cairo
@@ -11,6 +11,8 @@ class node:
         self.y = y
         self.z = z
         self.flux = 0
+        self.population = 0
+        self.danger = 0
         self.slope = 0
         self.coast = False
         self.river = False
@@ -165,7 +167,31 @@ class terrain:
                 zmax = n.z
             if n.z < zmin:
                 zmin = n.z
-        return zmin, zmax                
+        return zmin, zmax
+
+    def make_dangerous(self,nodes=10,blurring=10):
+        for i in range(nodes):
+            n = choice(list(self.graph))
+            n.danger = 1
+        for i in range(blurring):
+            for n in self.graph:
+                average_danger = n.danger
+                for n2 in self.graph[n]:
+                    average_danger += n2.danger
+                average_danger = average_danger / ( len(self.graph[n]) + 1 )
+                n.danger = average_danger
+
+        # normalize danger
+        max_danger = 0
+        min_danger = 2
+        for n in self.graph:
+            if n.danger > max_danger:
+                max_danger = n.danger
+            if n.danger < min_danger:
+                min_danger = n.danger
+        for n in self.graph:
+            n.danger = (n.danger-min_danger) / (max_danger-min_danger)
+
             
     def render(self,fname):
         lw = 1
@@ -203,8 +229,8 @@ class terrain:
                     ct.line_to(scale*n1.x, h-scale*n1.y)
                 ct.close_path()
                 ct.fill()
-                
-            if n.mountain and random()>0.8:
+
+            if n.mountain and random()>(0.000031*len(self.graph)):
                 # render mountain nodes
                 ct.set_source_rgb(0,0,0)
                 ct.move_to(scale*n.x-5,h-scale*n.y+5)
@@ -228,16 +254,22 @@ class terrain:
                         ct.move_to(scale*n.x, h-scale*n.y)
                         ct.line_to(scale*n2.x, h-scale*n2.y)
                         ct.stroke()
+
+            ct.set_source_rgb(n.danger,0,0)
+            ct.rectangle(scale*n.x, h-scale*n.y, 4, 4)
+            ct.fill()
         
         # finish & save
         surf.finish()
 
 
-t = terrain(2**8, sealevel=0.3)
+t = terrain(2**6, sealevel=0.5*random())
 t.gen_terrain(1000,0.1)
 for i in range(200):
     t.get_flux()
 for i in range(100):
     t.erode(1e-3)
 t.get_flux()
+#t.clean_coasts()
+t.make_dangerous(1000)
 t.render('map.svg')
