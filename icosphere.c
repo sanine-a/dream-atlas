@@ -7,9 +7,9 @@
 cartesian_point cartesian( spherical_point pt_s ) {
   cartesian_point pt_c;
 
-  pt_c.x = pt_s.r * cos(pt_s.theta) * sin(pt_s.phi);
-  pt_c.y = pt_s.r * cos(pt_s.theta) * cos(pt_s.phi);
-  pt_c.z = pt_s.r * sin(pt_s.theta);
+  pt_c.x = pt_s.r * cos(pt_s.phi) * cos(pt_s.theta);
+  pt_c.y = pt_s.r * cos(pt_s.phi) * sin(pt_s.theta);
+  pt_c.z = pt_s.r * sin(pt_s.phi);
 
   return pt_c;
 }
@@ -24,129 +24,200 @@ spherical_point spherical( cartesian_point pt_c ) {
   return pt_s;
 }
 
-// subdivide an edge
+// find midpoints
+spherical_point midpoint(spherical_point p1, spherical_point p2) {
+  cartesian_point c1, c2;
+  c1 = cartesian(p1);
+  c2 = cartesian(p2);
 
-void subdivide_edge( struct edge* e ) {
-  cartesian_point p1 = cartesian( *(e->p1) );
-  cartesian_point p2 = cartesian( *(e->p2) );
-  cartesian_point m;
-  m.x = 0.5*(p1.x + p2.x);
-  m.y = 0.5*(p1.y + p2.y);
-  m.z = 0.5*(p1.z + p2.z);
+  cartesian_point c3;
+  c3.x = 0.5*(c1.x + c2.x);
+  c3.y = 0.5*(c1.y + c2.y);
+  c3.z = 0.5*(c1.z + c2.z);
 
-  spherical_point* mid = malloc( sizeof(spherical_point) );
-  assert( mid != NULL );
-  *mid = spherical(m);
-
-  e->e1 = malloc(sizeof(struct edge));
-  e->e2 = malloc(sizeof(struct edge));
-
-  assert( e->e1 != NULL && e->e2 != NULL );
-
-  // new edge 1
-  e->e1->p1 = e->p1;
-  e->e1->p2 = mid;
-
-  // new edge 2
-  e->e2->p1 = e->p2;
-  e->e2->p2 = mid;    
+  return spherical(c3);
 }
 
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-// subdivide a face
+// create a new node & initialize neighbors and midpoints to -1
+node new_node() {
+  node n;
+  for (int i=0; i<6; i++) {
+    n.neighbors[i] = -1;
+  }
+  return n;
+}
 
-struct face* subdivide_face( struct face f ) {
-  /* if we label the vertices in e1 as p1=1 and p2=2,
-     with some third vertex out there, there are eight possible cases:
+// connect two nodes
+void connect( node* nodes, int node1, int node2 ) {
+  for (int i=0; i<6; i++) {
+    if ( nodes[node1].neighbors[i] == node2 ) {
+      // node 2 was already present
+      break;
+    }
+    else if ( nodes[node1].neighbors[i] == -1 ) {
+      nodes[node1].neighbors[i] = node2;
+      break;
+    }
+  }
+  for (int i=0; i<6; i++) {
+    if ( nodes[node2].neighbors[i] == node1 ) {
+      // node 2 was already present
+      break;
+    }
+    else if ( nodes[node2].neighbors[i] == -1 ) {
+      nodes[node2].neighbors[i] = node1;
+      break;
+    }
+  }
+}
 
-     0. e2 is (2,3) and e3 is (3,1)
-     1. e2 is (2,3) and e3 is (1,3)
-     2. e2 is (3,2) and e3 is (3,1)
-     3. e2 is (3,2) and e3 is (1,3)
-     4. e3 is (2,3) and e2 is (3,1)
-     5. e3 is (2,3) and e2 is (1,3)
-     6. e3 is (3,2) and e2 is (3,1)
-     7. e3 is (3,2) and e2 is (1,3)
+//check if two nodes are connected
+int connected(node* nodes, int node1, int node2) {
+  if ( node1 == -1 || node2 == -1 ) {
+    return 0;
+  }
+  for (int i=0; i<6; i++) {
+    if ( nodes[node1].neighbors[i] == node2 ) {
+      return 1;
+    }
+  }
+  return 0;
+}
 
-     the function tests for which case we are in, and then swaps pointers
-     around so that we wind up in case 0. 
-  */
+// subdivide a graph
+graph subdivide( graph g, int edges ) {
+  graph result;
+  result.size = g.size+edges;
+  result.nodes = malloc( (g.size + edges)*sizeof(node) );
+  assert( result.nodes != NULL );
   
-  struct edge* e1 = f.e1;
-  struct edge* e2 = f.e2;
-  struct edge* e3 = f.e3;  
-  
-
-  if ( e1->p1 == e2->p1 || e1->p1 == e2->p2 ) {
-    // state is in 4-7, so swap e2 and e3
-    struct edge* tmp = e2;
-    e2 = e3;
-    e3 = tmp;
+  // copy original points into result nodes
+  for (int i=0; i<g.size; i++) {
+    result.nodes[i] = new_node();
+    result.nodes[i].pt = g.nodes[i].pt;
   }
 
-  if ( e1->p2 == e2->p1 ) {
-    // case 2 or 3, swap e2's points
-    spherical_point* tmp_point = e2->p1;
-    struct edge* tmp_edge = e2->e1;
-
-    e2->p1 = e2->p2;
-    e2->p2 = tmp_point;
-
-    e2->e1 = e2->e2;
-    e2->e2 = tmp_edge;
+  // initialize midpoint indices
+  int* midpoints = malloc( 6*g.size*sizeof(int) );
+  assert( midpoints != NULL );
+  for (int i=0; i<6*g.size; i++) {
+    midpoints[i] = -1;
   }
 
-  if ( e1->p1 == e3->p1 ) {
-    // case 1, swap e3's points
-    spherical_point* tmp_point = e3->p1;
-    struct edge* tmp_edge = e3->e1;
+  // find midpoints
+  int index = g.size;
+  for (int n1=0; n1<g.size; n1++) {
+    for (int i=0; i<6; i++) {
+      if (midpoints[6*n1+i] == -1 && g.nodes[n1].neighbors[i] != -1) {
+	// we have not yet computed this midpoint
 
-    e3->p1 = e3->p2;
-    e3->p2 = tmp_point;
+	int n2 = g.nodes[n1].neighbors[i];
+	// find the neighbor's index for i
+	int j=0;
+	for (int k=0; k<6; k++) {
+	  if ( g.nodes[n2].neighbors[k] == n1 ) {
+	    j = k;
+	    break;
+	  }
+	}
 
-    e3->e1 = e3->e2;
-    e3->e2 = tmp_edge;
+	result.nodes[index] = new_node();
+	result.nodes[index].pt = midpoint(g.nodes[n1].pt, g.nodes[n2].pt);
+	midpoints[6*n1+i] = index;
+	midpoints[6*n2+j] = index;
+	index++;
+      }
+    }
   }
 
-  // now in case 0, we can subdivide the face properly
-
-  // build central edges
-
-  struct edge* center_edges[3];
-  for (int i=0; i<3; i++) {
-    center_edges[i] = malloc(sizeof(struct edge));
-    assert(center_edges[i] != NULL);
+  // rebuild graph
+  for (int n1=0; n1<g.size; n1++) {
+    for (int i=0; i<6; i++) {
+      if ( g.nodes[n1].neighbors[i] != -1 ) {
+	connect(result.nodes, n1, midpoints[6*n1+i]);
+	for (int j=0; j<6; j++) {
+	  // if two neighbors were connected, connect their midpoints
+	  if ( connected(g.nodes, g.nodes[n1].neighbors[i], g.nodes[n1].neighbors[j]) ) {
+	    connect(result.nodes, midpoints[6*n1+i], midpoints[6*n1+j]);
+	  }
+	}
+      }
+    }
   }
 
-  center_edges[0]->p1 = e1->e1->p2;
-  center_edges[0]->p2 = e2->e1->p2;
-  
-  center_edges[1]->p1 = e2->e1->p2;
-  center_edges[1]->p2 = e3->e1->p2;
-  
-  center_edges[2]->p1 = e3->e1->p2;
-  center_edges[2]->p2 = e1->e1->p2;
-
-  // build the new faces
-  
-  struct face* result = malloc(4*sizeof(struct face));
-  assert( result != NULL );
-
-  result[0].e1 = e1->e1;
-  result[0].e2 = center_edges[2];
-  result[0].e3 = e3->e2;
-
-  result[1].e1 = e1->e2;
-  result[1].e2 = center_edges[0];
-  result[1].e3 = e2->e1;
-
-  result[2].e1 = e2->e2;
-  result[2].e2 = center_edges[1];
-  result[2].e3 = e3->e1;
-
-  result[3].e1 = center_edges[0];
-  result[3].e2 = center_edges[1];
-  result[3].e3 = center_edges[2];
+  free(midpoints);
 
   return result;
 }
+  
+
+graph icosphere(int subdivisions) {
+
+  // construct icosahedron
+  double pi = 3.141592;
+  double a = atan2(1,2);
+
+  graph ico;
+  ico.size = 12;
+  ico.nodes = malloc(12*sizeof(node));
+  assert(ico.nodes != NULL);
+
+  // initialize all nodes
+  for (int i=0; i<12; i++) {
+    ico.nodes[i] = new_node();
+  }
+
+  // top & bottom
+  ico.nodes[10].pt.r = 1;
+  ico.nodes[10].pt.theta = 0;
+  ico.nodes[10].pt.phi = pi/2;
+
+  ico.nodes[11].pt.r = 1;
+  ico.nodes[11].pt.theta = 0;
+  ico.nodes[11].pt.phi = -pi/2;
+
+  // middle points
+  for (int i=0; i<10; i++) {
+    int k = -2*(i%2) + 1; // alternate rotating up & down
+    ico.nodes[i].pt.r = 1;
+    ico.nodes[i].pt.theta = i*pi/5;
+    ico.nodes[i].pt.phi = a*k;
+  }
+
+  // ~~~~build icosahedron~~~~
+  // top connects to the even nodes
+  for (int i=0; i<10; i+=2) {
+    connect(ico.nodes, 10, i);
+  }
+  
+  // bottom connects to the odd nodes
+  for (int i=1; i<10; i+=2) {
+    connect(ico.nodes, 11, i);
+  }
+
+  // connect middle nodes
+  for (int i=0; i<10; i++) {
+    int a = (i+8)%10; // back 2
+    int b = (i+9)%10; // back 1
+    int c = (i+11)%10; // forward 1
+    int d = (i+12)%10; // forward 2
+    
+    connect(ico.nodes, i, a);
+    connect(ico.nodes, i, b);
+    connect(ico.nodes, i, c);
+    connect(ico.nodes, i, d);
+  }
+
+  // subdivide
+  for (int i=0; i<subdivisions; i++) {
+    node* old_nodes = ico.nodes;
+    int n_edges = 30 * pow(4,i);
+    ico = subdivide(ico, n_edges);
+    free(old_nodes);
+  }
+  
+  return ico;
+}
+  

@@ -20,41 +20,28 @@ typedef struct {
   double r;
   double theta;
   double phi;
+  int index;
 } spherical_point;
 
 // point-conversion functions
-
 cartesian_point cartesian( spherical_point );
 spherical_point spherical( cartesian_point );
 
-// edges
-
-struct edge {
-  spherical_point* p1;
-  spherical_point* p2;
-  struct edge* e1;
-  struct edge* e2;
-};
-
-void subdivide_edge( struct edge* );
-
-// faces
-
-struct face {
-  struct edge* e1;
-  struct edge* e2;
-  struct edge* e3;
-};
-
-struct face* subdivide_face( struct face );
-
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-// node structure
+// graph structures
 
 typedef struct {
   spherical_point pt;
-  struct node* neighbors[6];
+  int neighbors[6];
 } node;
+
+typedef struct {
+  int size;
+  node* nodes;
+} graph;
+
+// graph-building
+graph icosphere(int subdivisions);
 
 #endif

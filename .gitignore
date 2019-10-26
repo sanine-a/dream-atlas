@@ -1,3 +1,4 @@
-map.svg
+*.svg
 *~
 *.o
+a.out
