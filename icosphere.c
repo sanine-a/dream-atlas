@@ -24,6 +24,8 @@ spherical_point spherical( cartesian_point pt_c ) {
   return pt_s;
 }
 
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 // find midpoints
 spherical_point midpoint(spherical_point p1, spherical_point p2) {
   cartesian_point c1, c2;
@@ -49,6 +51,8 @@ node new_node() {
   return n;
 }
 
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 // connect two nodes
 void connect( node* nodes, int node1, int node2 ) {
   for (int i=0; i<6; i++) {
@@ -73,6 +77,8 @@ void connect( node* nodes, int node1, int node2 ) {
   }
 }
 
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 //check if two nodes are connected
 int connected(node* nodes, int node1, int node2) {
   if ( node1 == -1 || node2 == -1 ) {
@@ -85,6 +91,8 @@ int connected(node* nodes, int node1, int node2) {
   }
   return 0;
 }
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 // subdivide a graph
 graph subdivide( graph g, int edges ) {
@@ -151,8 +159,9 @@ graph subdivide( graph g, int edges ) {
 
   return result;
 }
-  
 
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  
 graph icosphere(int subdivisions) {
 
   // construct icosahedron
@@ -221,3 +230,4 @@ graph icosphere(int subdivisions) {
   return ico;
 }
   
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

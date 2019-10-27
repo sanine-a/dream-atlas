@@ -2,14 +2,21 @@
 #include <cairo/cairo.h>
 #include <cairo/cairo-svg.h>
 #include "icosphere.h"
+#include "map_gen.h"
 
 void print_graph(graph g);
 
 int main() {
-  graph ico = icosphere(4);
+  graph ico = icosphere(1);
 
   //print_graph(ico);
   printf("%d\n",ico.size);
+
+  for (int i=0; i<ico.size; i++) {
+    ico.nodes[i].pt.r = 1;
+  }
+
+  jitter_nodes(ico,0,M_PI/20,M_PI/20);
   
   cairo_surface_t* surface;
   cairo_t* cr;
